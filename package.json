@@ -1,0 +1,38 @@
+{
+  "name": "@gravityai-dev/docs",
+  "version": "1.0.1",
+  "description": "Comprehensive documentation for GravityAI plugin node development",
+  "main": "index.js",
+  "scripts": {
+    "build": "echo 'Documentation package - no build required'",
+    "test": "echo 'Documentation package - no tests'",
+    "serve": "docsify serve . --port 3000",
+    "preview": "python3 -m http.server 8000"
+  },
+  "keywords": [
+    "gravityai",
+    "plugin",
+    "node",
+    "documentation",
+    "ai",
+    "workflow"
+  ],
+  "author": "GravityAI",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/gravityai-dev/gravity-server.git",
+    "directory": "services/gravity-services/packages/gravity-docs"
+  },
+  "homepage": "https://gravityai-dev.github.io/gravity-docs",
+  "files": [
+    "*.md",
+    "docs/**/*"
+  ],
+  "devDependencies": {
+    "docsify-cli": "^4.4.4"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}
