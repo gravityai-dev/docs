@@ -86,13 +86,39 @@ function createNodeDefinition(): EnhancedNodeDefinition {
         apiEndpoint: {
           type: "string",
           title: "API Endpoint",
+          description: "The API endpoint URL",
           default: "https://api.example.com"
         },
         prompt: {
           type: "string",
           title: "Prompt Template",
-          default: "${input.text}",
+          description: "User message. Supports {{input.fieldName}} syntax.",
+          default: "{{input.text}}",
           "ui:field": "template"
+        },
+        maxTokens: {
+          type: "number",
+          title: "Max Tokens",
+          description: "Maximum tokens to generate",
+          default: 256,
+          minimum: 1,
+          maximum: 4096
+        },
+        enableAdvanced: {
+          type: "boolean",
+          title: "Enable Advanced Options",
+          default: false,
+          "ui:widget": "toggle"
+        },
+        advancedConfig: {
+          type: "object",
+          title: "Advanced Configuration",
+          description: "JavaScript object for advanced settings",
+          default: "",
+          "ui:field": "template",
+          "ui:dependencies": {
+            enableAdvanced: true
+          }
         }
       },
       required: ["apiEndpoint"]
@@ -384,10 +410,21 @@ export default class MyCallbackExecutor extends CallbackNode<MyConfig, MyState> 
 1. ✅ Copy templates above
 2. ✅ Replace `MyNode` with your node name throughout
 3. ✅ Update `package.json` with your package name
-4. ✅ Implement your service logic
-5. ✅ Define your config schema
-6. ✅ Test with `npm run build`
-7. ✅ Publish with `npm publish`
+4. ✅ Define your config schema and types (see [Config Schema Reference](./06-config-schema.md))
+5. ✅ Implement your service logic
+6. ✅ Test with debug resolver
+7. ✅ Publish to npm
+
+## 🎨 Config Schema
+
+For complete details on all config schema options including:
+- String vs Object templates (`{{input.field}}` vs JavaScript)
+- Conditional dependencies (`ui:dependencies`)
+- Widgets (`ui:widget: "toggle"`)
+- Validation rules
+- Real working examples
+
+**See**: [Config Schema Reference](./06-config-schema.md)
 
 ## 🔗 Real Examples
 

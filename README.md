@@ -8,7 +8,8 @@
 2. **[Node Types](./02-node-types.md)** - PromiseNode vs CallbackNode (FIXED)
 3. **[Implementation Patterns](./03-patterns.md)** - Critical patterns (Pattern A)
 4. **[Credential Management](./04-credentials.md)** - The one rule
-5. **[Troubleshooting](./05-troubleshooting.md)** - Common issues (FIXED) and solutions
+5. **[Troubleshooting](./05-troubleshooting.md)** - Common issues (FIXED)
+6. **[Config Schema Reference](./06-config-schema.md)** - Complete UI configuration guide and solutions
 
 ## 🏗️ Architecture Overview
 
