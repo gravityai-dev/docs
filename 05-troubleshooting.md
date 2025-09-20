@@ -8,18 +8,25 @@
 
 **Cause**: Using wrong import pattern (Pattern B instead of Pattern A)
 
-**❌ Wrong Pattern:**
+**❌ Wrong Pattern (NEVER USE):**
 ```typescript
+// For PromiseNode - WRONG:
 import { PromiseNode } from "../../shared/platform";
 ```
 
-**✅ Correct Pattern:**
+**✅ Correct Patterns:**
 ```typescript
+// For PromiseNode - CORRECT:
 import { getPlatformDependencies } from "@gravityai-dev/plugin-base";
 const { PromiseNode } = getPlatformDependencies();
+
+// For CallbackNode - CORRECT:
+import { CallbackNode } from "../../shared/platform";
 ```
 
 **Why**: Class identity mismatch - workflow system checks `instanceof PromiseNode` using its own class, but Pattern B creates different class instances.
+
+**Critical**: 19 out of 28 packages had this wrong, causing system-wide failures.
 
 ### "Cannot find name 'PromiseNode'"
 
@@ -203,33 +210,56 @@ export async function myService(config: any, credentialContext: CredentialContex
 
 **Common Issues:**
 - Missing `isComplete` in state
-- Not handling events properly
+- Not handling "continue" signals properly
 - State not updating correctly
+- Wrong import pattern for CallbackNode
 
 **✅ Correct CallbackNode Pattern:**
 ```typescript
+// Import from shared/platform, NOT getPlatformDependencies
+import { CallbackNode } from "../../shared/platform";
+
 initializeState(inputs: any): MyState {
   return {
-    items: inputs.items || [],
+    items: [], // Start empty, get from config
     currentIndex: 0,
     isComplete: false, // Important!
   };
 }
 
 async handleEvent(event, state, emit) {
-  // Process item
-  const result = await processItem(state.items[state.currentIndex]);
+  const { inputs, config } = event;
   
-  // Emit output
-  emit({ __outputs: result });
+  // Handle continue signal to advance iteration
+  if (inputs?.continue !== undefined && state.items.length > 0) {
+    if (state.currentIndex >= state.items.length) {
+      return { ...state, isComplete: true };
+    }
+    
+    const item = state.items[state.currentIndex];
+    const result = await processItem(item);
+    
+    emit({ 
+      __outputs: {
+        item: result,
+        index: state.currentIndex,
+        hasMore: state.currentIndex < state.items.length - 1
+      }
+    });
+    
+    return {
+      ...state,
+      currentIndex: state.currentIndex + 1,
+      isComplete: state.currentIndex + 1 >= state.items.length
+    };
+  }
   
-  // Update state
-  const newIndex = state.currentIndex + 1;
-  return {
-    ...state,
-    currentIndex: newIndex,
-    isComplete: newIndex >= state.items.length // Set completion
-  };
+  // Initialize with items from config
+  if (state.items.length === 0 && config?.items) {
+    return { ...state, items: config.items };
+  }
+  
+  return state;
 }
 ```
 

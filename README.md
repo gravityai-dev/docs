@@ -2,13 +2,13 @@
 
 **Create powerful AI workflow nodes with GravityAI's plugin system**
 
-## 🚀 Quick Navigation
+## 📚 Quick Navigation
 
-- **[Quick Start](./01-quick-start.md)** - Essential templates and 5-minute setup
-- **[Node Types](./02-node-types.md)** - PromiseNode vs CallbackNode decision guide  
-- **[Implementation Patterns](./03-patterns.md)** - Core patterns and architecture
-- **[Credential Management](./04-credentials.md)** - Authentication pattern (the one rule)
-- **[Troubleshooting](./05-troubleshooting.md)** - Common issues and solutions
+1. **[Quick Start](./01-quick-start.md)** - Templates and setup (Pattern A)
+2. **[Node Types](./02-node-types.md)** - PromiseNode vs CallbackNode (FIXED)
+3. **[Implementation Patterns](./03-patterns.md)** - Critical patterns (Pattern A)
+4. **[Credential Management](./04-credentials.md)** - The one rule
+5. **[Troubleshooting](./05-troubleshooting.md)** - Common issues (FIXED) and solutions
 
 ## 🏗️ Architecture Overview
 
@@ -73,6 +73,51 @@ export default class MyNodeExecutor extends PromiseNode<MyConfig> {
     const credentialContext = this.buildCredentialContext(context);
     const result = await myService(config, credentialContext);
     return { __outputs: result };
+  }
+}
+```
+
+## 🔄 CallbackNode Example (CORRECTED)
+```typescript
+// Import from shared/platform for CallbackNode
+import { CallbackNode } from "../../shared/platform";
+
+class LoopExecutor extends CallbackNode<LoopConfig, LoopState> {
+  initializeState(inputs: any): LoopState {
+    return { items: [], currentIndex: 0, isComplete: false };
+  }
+  
+  async handleEvent(event, state, emit) {
+    const { inputs, config } = event;
+    
+    // Handle continue signal to advance iteration
+    if (inputs?.continue !== undefined && state.items.length > 0) {
+      if (state.currentIndex >= state.items.length) {
+        return { ...state, isComplete: true };
+      }
+      
+      const item = state.items[state.currentIndex];
+      emit({ 
+        __outputs: { 
+          item, 
+          index: state.currentIndex,
+          hasMore: state.currentIndex < state.items.length - 1
+        } 
+      });
+      
+      return {
+        ...state,
+        currentIndex: state.currentIndex + 1,
+        isComplete: state.currentIndex + 1 >= state.items.length
+      };
+    }
+    
+    // Initialize with items from config
+    if (state.items.length === 0 && config?.items) {
+      return { ...state, items: config.items };
+    }
+    
+    return state;
   }
 }
 ```

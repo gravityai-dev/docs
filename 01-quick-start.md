@@ -44,7 +44,7 @@ const plugin = createPlugin({
   description: packageJson.description,
 
   async setup(api: GravityPluginAPI) {
-    // Initialize platform dependencies
+    // CRITICAL: Initialize platform dependencies first
     const { initializePlatformFromAPI } = await import("@gravityai-dev/plugin-base");
     initializePlatformFromAPI(api);
 
@@ -280,9 +280,20 @@ export const MyCredential = {
 For CallbackNode (streaming/iterative), replace the executor with:
 
 ```typescript
-import { getPlatformDependencies, type NodeExecutionContext, type ValidationResult } from "@gravityai-dev/plugin-base";
+import { type NodeExecutionContext, type ValidationResult } from "@gravityai-dev/plugin-base";
+import { CallbackNode } from "../../shared/platform";
 
-const { CallbackNode } = getPlatformDependencies();
+interface MyState {
+  items: any[];
+  currentIndex: number;
+  isComplete: boolean;
+}
+
+interface MyEvent {
+  type: string;
+  inputs?: any;
+  config?: MyConfig;
+}
 
 export default class MyCallbackExecutor extends CallbackNode<MyConfig, MyState> {
   constructor() {
@@ -302,30 +313,65 @@ export default class MyCallbackExecutor extends CallbackNode<MyConfig, MyState> 
   }
 
   async handleEvent(
-    event: { type: string; inputs?: any; config?: any },
+    event: MyEvent,
     state: MyState,
     emit: (output: any) => void
   ): Promise<MyState> {
+    // Get execution context from CallbackNode
     const executionContext = (this as any).executionContext;
     if (!executionContext) {
       throw new Error("Execution context not available");
     }
 
-    // Process items one by one
-    if (state.currentIndex < state.items.length) {
-      const item = state.items[state.currentIndex];
+    const { inputs, config } = event;
+    const resolvedConfig = config as MyConfig;
+
+    // Handle continue signal to advance iteration
+    if (inputs?.continue !== undefined && state.items.length > 0) {
+      if (state.currentIndex >= state.items.length) {
+        return { ...state, isComplete: true };
+      }
+
+      const currentItem = state.items[state.currentIndex];
+      const result = await processItem(currentItem, executionContext);
       
-      // Process item
-      const result = await processItem(item, executionContext);
-      
-      // Emit result
-      emit({ __outputs: result });
+      emit({
+        __outputs: {
+          item: result,
+          index: state.currentIndex,
+          hasMore: state.currentIndex < state.items.length - 1
+        }
+      });
       
       return {
         ...state,
         currentIndex: state.currentIndex + 1,
         isComplete: state.currentIndex + 1 >= state.items.length
       };
+    }
+
+    // Initialize with items from config if available
+    if (state.items.length === 0 && resolvedConfig?.items) {
+      const items = resolvedConfig.items;
+      
+      if (items.length > 0) {
+        const firstItem = items[0];
+        const result = await processItem(firstItem, executionContext);
+        
+        emit({
+          __outputs: {
+            item: result,
+            index: 0,
+            hasMore: items.length > 1
+          }
+        });
+        
+        return {
+          items,
+          currentIndex: 1,
+          isComplete: items.length <= 1
+        };
+      }
     }
 
     return state;

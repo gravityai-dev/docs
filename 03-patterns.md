@@ -6,13 +6,26 @@
 
 **This is the most important pattern - get this right or your node won't work.**
 
-### ✅ CORRECT Pattern (Pattern A)
+### ✅ CORRECT Pattern (Pattern A) - ALWAYS USE THIS
 ```typescript
+// PromiseNode executors: Use getPlatformDependencies()
 import { getPlatformDependencies, type NodeExecutionContext } from "@gravityai-dev/plugin-base";
 
 const { PromiseNode } = getPlatformDependencies();
 
 export default class MyExecutor extends PromiseNode<MyConfig> {
+  constructor() {
+    super("MyNode");
+  }
+}
+```
+
+```typescript
+// CallbackNode executors: Use shared/platform
+import { type NodeExecutionContext } from "@gravityai-dev/plugin-base";
+import { CallbackNode } from "../../shared/platform";
+
+export default class MyCallbackExecutor extends CallbackNode<MyConfig, MyState> {
   constructor() {
     super("MyNode");
   }
@@ -28,6 +41,8 @@ export default class MyExecutor extends PromiseNode<MyConfig> {
   // This creates class identity mismatch!
 }
 ```
+
+**⚠️ CRITICAL:** 19 out of 28 packages had this wrong pattern, causing system failures.
 
 ### Why Pattern A is Required
 - **Class Identity**: Workflow system checks `instanceof PromiseNode` using its own class

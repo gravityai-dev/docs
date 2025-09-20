@@ -49,21 +49,21 @@ protected async executeNode(
 
 ## 🔄 CallbackNode - Multiple Outputs
 
-**Pattern**: Initialize → Process → Emit → Process → Emit → Complete
+**Pattern**: Initialize → HandleEvent → Emit → HandleEvent → Emit → Complete
 
 ### When to Use
 - ✅ Multiple outputs over time
 - ✅ Stateful operations
-- ✅ Streaming data
-- ✅ User interactions requiring continuation
-- ✅ Processing collections/arrays
+- ✅ Processing collections/arrays one by one
+- ✅ Waiting for continuation signals
+- ✅ Iterative workflows (like Loop node)
 
 ### Key Characteristics
 - Extends `CallbackNode<ConfigType, StateType>`
 - Implements `initializeState()` and `handleEvent()` methods
 - Maintains state between events
-- Can emit multiple outputs
-- Workflow waits for continuation signals
+- Can emit multiple outputs via `emit()` function
+- Workflow waits for continuation signals (like "continue" input)
 
 ### Method Signatures
 ```typescript
@@ -147,23 +147,44 @@ class APINode extends PromiseNode<Config> {
 class ProcessorNode extends CallbackNode<Config, State> {
   initializeState(inputs) {
     return {
-      items: inputs.items || [],
+      items: [],
       currentIndex: 0,
       isComplete: false,
     };
   }
   
   async handleEvent(event, state, emit) {
-    if (state.currentIndex < state.items.length) {
+    const { inputs, config } = event;
+    
+    // Handle continue signal to advance iteration
+    if (inputs?.continue !== undefined && state.items.length > 0) {
+      if (state.currentIndex >= state.items.length) {
+        return { ...state, isComplete: true };
+      }
+      
       const item = state.items[state.currentIndex];
       const result = await processItem(item);
       
-      emit({ __outputs: result });
+      emit({ 
+        __outputs: {
+          item: result,
+          index: state.currentIndex,
+          hasMore: state.currentIndex < state.items.length - 1
+        }
+      });
       
       return {
         ...state,
         currentIndex: state.currentIndex + 1,
         isComplete: state.currentIndex + 1 >= state.items.length
+      };
+    }
+    
+    // Initialize with items from config
+    if (state.items.length === 0 && config?.items) {
+      return {
+        ...state,
+        items: config.items
       };
     }
     
