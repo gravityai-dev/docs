@@ -10,6 +10,7 @@
 4. **[Credential Management](./04-credentials.md)** - The one rule
 5. **[Troubleshooting](./05-troubleshooting.md)** - Common issues (FIXED)
 6. **[Config Schema Reference](./06-config-schema.md)** - Complete UI configuration guide and solutions
+7. **[Service Connectors & MCP](./07-service-connectors.md)** - Connect nodes and enable AI tools
 
 ## 🏗️ Architecture Overview
 
@@ -35,6 +36,8 @@ GravityAI uses a **plugin-based architecture** where nodes are distributed as np
 2. **Separation of Concerns**: Executors handle workflow logic, services handle business logic
 3. **Credential Security**: Services fetch credentials internally, never exposed to nodes
 4. **Type Safety**: Full TypeScript support with proper interfaces
+5. **Service Connectivity**: Nodes can provide and consume services through service connectors
+6. **MCP Integration**: AI nodes automatically discover tools from connected MCP services
 
 ## 📦 Real Examples
 
@@ -52,6 +55,12 @@ Instead of code samples, reference these published packages:
 ### Credential Patterns
 - **AWS Services**: `@gravityai-dev/aws-bedrock`, `@gravityai-dev/aws-s3`
 - **API Keys**: `@gravityai-dev/openai`, `@gravityai-dev/pinecone`
+
+### Service Connector Examples
+- **MCP Provider**: PostgresFetch - Provides vector search tools via MCP
+- **MCP Consumer**: Nova Speech - Discovers and uses tools from MCP services
+- **Embedding Service**: OpenAI - Provides text embedding service
+- **Service Consumer**: PostgresFetch - Consumes embedding services
 
 ## 🚨 Critical Pattern (Must Follow)
 

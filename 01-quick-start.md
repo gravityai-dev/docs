@@ -121,8 +121,26 @@ function createNodeDefinition(): EnhancedNodeDefinition {
           }
         }
       },
-      required: ["apiEndpoint"]
+      required: ["apiEndpoint", "prompt"],
     },
+    
+    serviceConnectors: [
+      {
+        name: "embeddingService",
+        description: "Connect to an embedding service",
+        serviceType: "embedding",
+        methods: ["createEmbedding"],
+        isService: false, // This node consumes services
+      },
+      // Or provide a service:
+      // {
+      //   name: "myService",
+      //   description: "My custom service",
+      //   serviceType: "custom",
+      //   methods: ["myMethod"],
+      //   isService: true, // This node provides services
+      // }
+    ],
     capabilities: {
       isTrigger: false,
     },
@@ -162,15 +180,7 @@ export default class MyNodeExecutor extends PromiseNode<MyNodeConfig> {
     config: MyNodeConfig,
     context: NodeExecutionContext
   ): Promise<MyNodeOutput> {
-    const nodeId = context.nodeId;
-    const startTime = Date.now();
-
-    this.logger.info(`🚀 [MyNode] Starting execution for node: ${nodeId}`);
-
-    // Build credential context for service
     const credentialContext = this.buildCredentialContext(context);
-
-    // Call service with config and credentials
     const result = await myService(config, credentialContext);
 
     const finalResult = {
@@ -187,16 +197,11 @@ export default class MyNodeExecutor extends PromiseNode<MyNodeConfig> {
     return finalResult;
   }
 
-  /**
-   * Build credential context from execution context
-   */
-  private buildCredentialContext(context: NodeExecutionContext) {
-    const { workflowId, executionId, nodeId } = this.validateAndGetContext(context);
-
+  protected buildCredentialContext(context: NodeExecutionContext): any {
     return {
-      workflowId,
-      executionId,
-      nodeId,
+      workflowId: context.workflow?.id,
+      executionId: context.executionId,
+      nodeId: context.nodeId,
       nodeType: this.nodeType,
       config: context.config,
       credentials: context.credentials || {},
