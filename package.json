@@ -1,6 +1,6 @@
 {
   "name": "@gravityai-dev/docs",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "description": "Comprehensive documentation for GravityAI plugin node development",
   "main": "index.js",
   "scripts": {
