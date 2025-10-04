@@ -6,65 +6,62 @@
 
 ### "Node X is not a PromiseNode but was executed as one"
 
-**Cause**: Using wrong import pattern (Pattern B instead of Pattern A)
+**Cause**: Incorrect base class import
 
-**❌ Wrong Pattern (NEVER USE):**
+**✅ Correct Pattern:**
 ```typescript
-// For PromiseNode - WRONG:
-import { PromiseNode } from "../../shared/platform";
-```
+// For PromiseNode:
+import { PromiseNode, type NodeExecutionContext } from "@gravityai-dev/plugin-base";
 
-**✅ Correct Patterns:**
-```typescript
-// For PromiseNode - CORRECT:
+export default class MyExecutor extends PromiseNode {
+  constructor() {
+    super("MyNode");
+  }
+}
+
+// For CallbackNode:
 import { getPlatformDependencies } from "@gravityai-dev/plugin-base";
-const { PromiseNode } = getPlatformDependencies();
+const { CallbackNode } = getPlatformDependencies();
 
-// For CallbackNode - CORRECT:
-import { CallbackNode } from "../../shared/platform";
+export default class MyCallbackExecutor extends CallbackNode {
+  constructor() {
+    super("MyNode");
+  }
+}
 ```
 
-**Why**: Class identity mismatch - workflow system checks `instanceof PromiseNode` using its own class, but Pattern B creates different class instances.
-
-**Critical**: 19 out of 28 packages had this wrong, causing system-wide failures.
+**Why**: The workflow system validates node types. PromiseNode can be imported directly, but CallbackNode still needs `getPlatformDependencies()`.
 
 ### "Cannot find name 'PromiseNode'"
 
-**Cause**: Missing platform dependencies call
-
-**❌ Wrong:**
-```typescript
-import { getPlatformDependencies } from "@gravityai-dev/plugin-base";
-// Missing the actual call!
-
-export class MyExecutor extends PromiseNode<Config> {
-```
+**Cause**: Missing import
 
 **✅ Correct:**
 ```typescript
-import { getPlatformDependencies } from "@gravityai-dev/plugin-base";
-const { PromiseNode } = getPlatformDependencies(); // Add this line!
+import { PromiseNode, type NodeExecutionContext } from "@gravityai-dev/plugin-base";
 
-export class MyExecutor extends PromiseNode<Config> {
+export default class MyExecutor extends PromiseNode {
+  constructor() {
+    super("MyNode");
+  }
+}
 ```
 
 ### "Startup Freeze" / Plugin Loading Hangs
 
-**Cause**: Calling `getPlatformDependencies()` too early in module loading
+**Cause**: Module-level calls to platform dependencies
 
-**❌ Wrong:**
+**✅ Correct - Use Direct Imports:**
 ```typescript
-// This happens during import, before platform is ready
-const deps = getPlatformDependencies();
+import { PromiseNode, type NodeExecutionContext } from "@gravityai-dev/plugin-base";
 import { myService } from "./service";
+
+export default class MyExecutor extends PromiseNode {
+  // No module-level getPlatformDependencies() needed
+}
 ```
 
-**✅ Correct:**
-```typescript
-import { getPlatformDependencies } from "@gravityai-dev/plugin-base";
-// Call after imports
-const { PromiseNode } = getPlatformDependencies();
-```
+**Note**: Only CallbackNode still needs `getPlatformDependencies()` at module level.
 
 ## 🔧 Build & Import Errors
 
@@ -115,14 +112,12 @@ export { MyExecutor };
 **✅ Correct Types:**
 ```typescript
 import { 
-  getPlatformDependencies, 
+  PromiseNode,
   type NodeExecutionContext, 
   type ValidationResult 
 } from "@gravityai-dev/plugin-base";
 
-const { PromiseNode } = getPlatformDependencies();
-
-export default class MyExecutor extends PromiseNode<MyConfig> {
+export default class MyExecutor extends PromiseNode {
   protected async validateConfig(config: MyConfig): Promise<ValidationResult> {
     return { success: true };
   }
@@ -132,7 +127,10 @@ export default class MyExecutor extends PromiseNode<MyConfig> {
     config: MyConfig,
     context: NodeExecutionContext
   ): Promise<MyOutput> {
-    // Implementation
+    // Use injected API
+    const logger = context.api?.createLogger?.(this.nodeType) || console;
+    const result = await myService(config, credentialContext, context.api);
+    return { __outputs: result };
   }
 }
 ```
@@ -187,9 +185,9 @@ const apiKey = context.credentials.myCredential.apiKey;
 
 **✅ Correct Pattern:**
 ```typescript
-// Service fetches credentials internally
-export async function myService(config: any, credentialContext: CredentialContext) {
-  const credentials = await getNodeCredentials(credentialContext, 'myCredential');
+// Service fetches credentials from injected API
+export async function myService(config: any, credentialContext: CredentialContext, api: any) {
+  const credentials = await api.getNodeCredentials(credentialContext, 'myCredential');
   const apiKey = credentials.apiKey;
   // Use apiKey...
 }
@@ -216,8 +214,9 @@ export async function myService(config: any, credentialContext: CredentialContex
 
 **✅ Correct CallbackNode Pattern:**
 ```typescript
-// Import from shared/platform, NOT getPlatformDependencies
-import { CallbackNode } from "../../shared/platform";
+import { getPlatformDependencies } from "@gravityai-dev/plugin-base";
+
+const { CallbackNode } = getPlatformDependencies();
 
 initializeState(inputs: any): MyState {
   return {
@@ -265,21 +264,18 @@ async handleEvent(event, state, emit) {
 
 ### Logger Not Working
 
-**❌ Wrong:**
-```typescript
-import { createLogger } from "../../shared/platform";
-const logger = createLogger("MyNode");
-```
-
-**✅ Correct:**
+**✅ Correct Pattern:**
 ```typescript
 // In executor, use this.logger
 this.logger.info("Processing started");
 
-// In service, accept logger parameter
-export async function myService(config: any, credentialContext: any, logger?: any) {
-  const log = logger || console;
-  log.info("Service called");
+// Or get from context.api
+const logger = context.api?.createLogger?.(this.nodeType) || console;
+
+// In service, get from injected API
+export async function myService(config: any, credentialContext: any, api: any) {
+  const logger = api?.createLogger?.("MyService") || console;
+  logger.info("Service called");
 }
 ```
 
@@ -367,9 +363,9 @@ protected async executeNode(inputs, config, context) {
 
 | Error Message | Likely Cause | Solution |
 |---------------|--------------|----------|
-| "is not a PromiseNode" | Wrong import pattern | Use Pattern A |
-| "Cannot find name" | Missing platform deps call | Add `getPlatformDependencies()` |
-| "Startup freeze" | Early platform deps call | Move call after imports |
+| "is not a PromiseNode" | Wrong import | Import PromiseNode directly |
+| "Cannot find name" | Missing import | Add import statement |
+| "Startup freeze" | Module-level deps call | Use direct imports |
 | "Credentials are required" | Missing credential definition | Add to node definition |
 | "Credential not found" | Missing credential ID | Check node config |
 | "Multiple default exports" | Duplicate exports | Remove duplicate |

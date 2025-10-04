@@ -65,12 +65,10 @@ Instead of code samples, reference these published packages:
 ## 🚨 Critical Pattern (Must Follow)
 
 ```typescript
-// ✅ CORRECT: Plugin executor pattern
-import { getPlatformDependencies, type NodeExecutionContext } from "@gravityai-dev/plugin-base";
+// ✅ CORRECT: Dependency injection pattern
+import { PromiseNode, type NodeExecutionContext } from "@gravityai-dev/plugin-base";
 
-const { PromiseNode } = getPlatformDependencies();
-
-export default class MyNodeExecutor extends PromiseNode<MyConfig> {
+export default class MyNodeExecutor extends PromiseNode {
   constructor() {
     super("MyNode");
   }
@@ -80,8 +78,10 @@ export default class MyNodeExecutor extends PromiseNode<MyConfig> {
     config: MyConfig,
     context: NodeExecutionContext
   ): Promise<MyOutput> {
+    // Use injected API
+    const logger = context.api?.createLogger?.("MyNode") || console;
     const credentialContext = this.buildCredentialContext(context);
-    const result = await myService(config, credentialContext);
+    const result = await myService(config, credentialContext, context.api);
     return { __outputs: result };
   }
 }
@@ -89,8 +89,9 @@ export default class MyNodeExecutor extends PromiseNode<MyConfig> {
 
 ## 🔄 CallbackNode Example (CORRECTED)
 ```typescript
-// Import from shared/platform for CallbackNode
-import { CallbackNode } from "../../shared/platform";
+import { getPlatformDependencies } from "@gravityai-dev/plugin-base";
+
+const { CallbackNode } = getPlatformDependencies();
 
 class LoopExecutor extends CallbackNode<LoopConfig, LoopState> {
   initializeState(inputs: any): LoopState {

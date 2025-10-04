@@ -44,10 +44,6 @@ const plugin = createPlugin({
   description: packageJson.description,
 
   async setup(api: GravityPluginAPI) {
-    // CRITICAL: Initialize platform dependencies first
-    const { initializePlatformFromAPI } = await import("@gravityai-dev/plugin-base");
-    initializePlatformFromAPI(api);
-
     // Import and register node
     const { MyNodeNode } = await import("./MyNode/node");
     api.registerNode(MyNodeNode);
@@ -63,11 +59,10 @@ export default plugin;
 
 ### 2. Node Definition (`src/MyNode/node/index.ts`)
 ```typescript
-import { getPlatformDependencies, type EnhancedNodeDefinition } from "@gravityai-dev/plugin-base";
+import { NodeInputType, type EnhancedNodeDefinition } from "@gravityai-dev/plugin-base";
 import MyNodeExecutor from "./executor";
 
 function createNodeDefinition(): EnhancedNodeDefinition {
-  const { NodeInputType } = getPlatformDependencies();
   
   return {
     type: "MyNode",
@@ -159,13 +154,11 @@ export { createNodeDefinition };
 
 ### 3. Node Executor (`src/MyNode/node/executor.ts`)
 ```typescript
-import { getPlatformDependencies, type NodeExecutionContext, type ValidationResult } from "@gravityai-dev/plugin-base";
+import { PromiseNode, type NodeExecutionContext, type ValidationResult } from "@gravityai-dev/plugin-base";
 import { MyNodeConfig, MyNodeOutput } from "../util/types";
 import { myService } from "../service";
 
-const { PromiseNode } = getPlatformDependencies();
-
-export default class MyNodeExecutor extends PromiseNode<MyNodeConfig> {
+export default class MyNodeExecutor extends PromiseNode {
   constructor() {
     super("MyNode");
   }
@@ -181,7 +174,7 @@ export default class MyNodeExecutor extends PromiseNode<MyNodeConfig> {
     context: NodeExecutionContext
   ): Promise<MyNodeOutput> {
     const credentialContext = this.buildCredentialContext(context);
-    const result = await myService(config, credentialContext);
+    const result = await myService(config, credentialContext, context.api);
 
     const finalResult = {
       __outputs: {
@@ -212,12 +205,11 @@ export default class MyNodeExecutor extends PromiseNode<MyNodeConfig> {
 
 ### 4. Service (`src/MyNode/service/index.ts`)
 ```typescript
-import { getNodeCredentials } from "../../shared/platform";
 import { MyNodeConfig } from "../util/types";
 
-export async function myService(config: MyNodeConfig, credentialContext: any) {
+export async function myService(config: MyNodeConfig, credentialContext: any, api: any) {
   // Fetch credentials using the credential pattern
-  const credentials = await getNodeCredentials(credentialContext, "myCredential");
+  const credentials = await api.getNodeCredentials(credentialContext, "myCredential");
   
   if (!credentials?.apiKey) {
     throw new Error("API key not found in credentials");
@@ -269,16 +261,13 @@ export interface MyNodeOutput {
 }
 ```
 
-### 6. Platform Dependencies (`src/shared/platform.ts`)
+### 6. Platform Dependencies (Optional - for CallbackNode only)
 ```typescript
+// Only needed if you have CallbackNode executors
 import { getPlatformDependencies } from "@gravityai-dev/plugin-base";
 
 const deps = getPlatformDependencies();
 
-export const getNodeCredentials = deps.getNodeCredentials;
-export const saveTokenUsage = deps.saveTokenUsage;
-export const createLogger = deps.createLogger;
-export const PromiseNode = deps.PromiseNode;
 export const CallbackNode = deps.CallbackNode;
 ```
 
@@ -311,8 +300,9 @@ export const MyCredential = {
 For CallbackNode (streaming/iterative), replace the executor with:
 
 ```typescript
-import { type NodeExecutionContext, type ValidationResult } from "@gravityai-dev/plugin-base";
-import { CallbackNode } from "../../shared/platform";
+import { getPlatformDependencies, type NodeExecutionContext, type ValidationResult } from "@gravityai-dev/plugin-base";
+
+const { CallbackNode } = getPlatformDependencies();
 
 interface MyState {
   items: any[];
